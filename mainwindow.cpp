@@ -1,0 +1,369 @@
+#include "mainwindow.h"
+#include "ui_mainwindow.h"
+#include <QStorageInfo>
+#include <QFileDialog>
+#include <QString>
+#include <QFile>
+#include <QMessageBox>
+#include <QTextStream>
+
+#include <QJsonObject>
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QJsonValue>
+#include <QJsonParseError>
+
+#include <QXmlStreamWriter>
+#include <QXmlStreamReader>
+#include <QXmlStreamAttribute>
+
+
+#include "QtGui/private/qzipreader_p.h"
+#include "QtGui/private/qzipwriter_p.h"
+
+MainWindow::MainWindow(QWidget *parent)
+    : QMainWindow(parent)
+    , ui(new Ui::MainWindow)
+{
+    ui->setupUi(this);
+
+    foreach (const QStorageInfo &storage, QStorageInfo::mountedVolumes()) {
+        if (storage.isValid() && storage.isReady()) {
+            if (!storage.isReadOnly()) {
+                this->ui->listWidget->addItem("раздел: " + storage.device() + "\n"
+                                              + "name: " + storage.displayName() + "\n"
+                                              + "size: " + QString("%1").arg(storage.bytesTotal()/1000/1000) + " МБ\n"
+                                              + "avaliable size: " + QString("%1").arg(storage.bytesAvailable()/1000/1000) + " МБ\n"
+                                              + "fileSystemType: " +storage.fileSystemType() + "\n");
+
+            }
+        }
+
+    }
+
+
+}
+
+
+
+MainWindow::~MainWindow()
+{
+    delete ui;
+}
+
+
+void MainWindow::on_pushButton_clicked()//сохранить
+{
+    QString fileName = QFileDialog::getSaveFileName(this, tr("сохранить"), "~/", tr("txt files (*.txt)"));
+
+    QFile file(fileName);
+
+    if(!file.open(QIODevice::ReadWrite)) {
+        QMessageBox::information(0, "error", file.errorString());
+    }
+
+
+    QTextStream stream(&file);
+    stream << this->ui->plainTextEdit->toPlainText()<< endl;
+    stream.flush();
+
+    file.close();
+}
+
+
+void MainWindow::on_pushButton_2_clicked()//открыть
+{
+    QString fileName = QFileDialog::getOpenFileName(this,tr("открыть"), "~/", tr("text files (*.txt)"));
+
+    QFile file(fileName);
+
+    if(!file.open(QIODevice::ReadOnly)) {
+        QMessageBox::information(0, "error", file.errorString());
+    }
+
+    QTextStream in(&file);
+
+    while(!in.atEnd()) {
+        QString line = in.readLine() + "\n";
+
+        this->ui->plainTextEdit->insertPlainText (line);
+    }
+
+    file.close();
+
+}
+
+
+void MainWindow::on_pushButton_3_clicked()//удалить
+{
+    QString fileName = QFileDialog::getOpenFileName(this,tr("открыть"), "~/", tr("text files (*.txt)"));
+    QFile file (fileName);
+    file.remove();
+}
+
+
+void MainWindow::on_pushButton_5_clicked()//json открыть
+{
+    this->ui->listWidget_2->clear();
+    list.clear();
+
+    QString fileName = QFileDialog::getOpenFileName(this,tr("открыть"), "~/", tr("json files (*.json)"));
+
+    QString val;
+
+    QFile file(fileName);
+    file.open(QIODevice::ReadOnly | QIODevice::Text);
+    val = file.readAll();
+    file.close();
+
+    QJsonParseError error;
+
+    QJsonDocument doc = QJsonDocument::fromJson(val.toUtf8(), &error);
+    if (doc.isObject())
+    {
+        QJsonObject json = doc.object();
+        QJsonArray jsonArray = json["students"].toArray();
+        foreach (const QJsonValue & value, jsonArray)
+        {
+            if (value.isObject())
+            {
+                QJsonObject obj = value.toObject();
+                QString fio = obj["name"].toString();
+                QString year = obj["year"].toString();
+                QString track = obj["track"].toString();
+
+                list.append(Student(fio,year,track));
+                this->ui->listWidget_2->addItem("ФИО: " + fio + "\nГод поступления: " + year+ "\nНаправление: " + track+ "\n");
+            }
+        }
+    }
+
+
+}
+
+
+void MainWindow::on_pushButton_6_clicked()//json добавить
+{
+    list.append(Student(this->ui->lineEdit->text(),this->ui->lineEdit_2->text(),this->ui->lineEdit_3->text()));
+    this->ui->listWidget_2->addItem("ФИО: " + this->ui->lineEdit->text() + "\nГод поступления: " + this->ui->lineEdit_2->text()+ "\nНаправление: " + this->ui->lineEdit_3->text()+ "\n");
+}
+
+
+void MainWindow::on_pushButton_4_clicked()//json сохранить
+{
+    QString fileName = QFileDialog::getSaveFileName(this, tr("сохранить"), "~/", tr("json files (*.json)"));
+
+
+    QJsonArray plot_array;
+    for(auto item : list)
+    {
+        QJsonObject item_data;
+
+        item_data.insert("name", QJsonValue(item.getFio()));
+        item_data.insert("year", QJsonValue(item.getYear()));
+        item_data.insert("track", QJsonValue(item.getTrack()));
+
+        plot_array.push_back(QJsonValue(item_data));
+    }
+
+    QJsonObject final_object;
+
+    final_object.insert(QString("students"), QJsonValue(plot_array));
+    QJsonDocument doc(final_object);
+    QString jsonString = doc.toJson(QJsonDocument::Indented);
+
+
+    QFile file(fileName);
+    file.open(QIODevice::WriteOnly | QIODevice::Text);
+    QTextStream stream( &file );
+    stream << jsonString;
+    stream.flush();
+}
+
+
+void MainWindow::on_pushButton_7_clicked()//xml добавить
+{
+    discipline_list.append(Discipline(this->ui->lineEdit_4->text(),this->ui->lineEdit_5->text(),this->ui->lineEdit_6->text()));
+    this->ui->listWidget_3->addItem("название: " + this->ui->lineEdit_4->text() + "\nГод утверждения: " + this->ui->lineEdit_5->text()
+                                    + "\nПреподаватель: " + this->ui->lineEdit_6->text()+ "\n");
+}
+
+
+void MainWindow::on_pushButton_9_clicked()//xml сохранить
+{
+    QString fileName = QFileDialog::getSaveFileName(this, tr("сохранить"), "~/", tr("json files (*.xml)"));
+
+    QFile file(fileName);
+    file.open(QIODevice::WriteOnly);
+
+    /* Создаем объект, с помощью которого осуществляется запись в файл */
+    QXmlStreamWriter xmlWriter(&file);
+    xmlWriter.setAutoFormatting(true);  // Устанавливаем автоформатирование текста
+    xmlWriter.writeStartDocument();     // Запускаем запись в документ
+
+    xmlWriter.writeStartElement("disciplins");
+    for(auto item : discipline_list)
+    {
+        xmlWriter.writeStartElement("disciplin");
+
+            xmlWriter.writeStartElement("title");
+                xmlWriter.writeCharacters(item.getTitle());
+            xmlWriter.writeEndElement();
+
+            xmlWriter.writeStartElement("year");
+                xmlWriter.writeCharacters(item.getYear());
+            xmlWriter.writeEndElement();
+
+            xmlWriter.writeStartElement("teacher");
+                xmlWriter.writeCharacters(item.getTeacher());
+            xmlWriter.writeEndElement();
+
+        xmlWriter.writeEndElement();
+    }
+
+
+
+    xmlWriter.writeEndElement();
+    xmlWriter.writeEndDocument();
+    file.close();
+
+
+}
+
+
+void MainWindow::on_pushButton_8_clicked()//xml открыть
+{
+    this->ui->listWidget_3->clear();
+    discipline_list.clear();
+
+    QString fileName = QFileDialog::getOpenFileName(this,tr("открыть"), "~/", tr("xml files (*.xml)"));
+
+    QFile file(fileName);
+    if (!file.open(QFile::ReadOnly | QFile::Text))
+    {
+        QMessageBox::warning(this,
+                             "Ошибка файла",
+                             "Не удалось открыть файл",
+                             QMessageBox::Ok);
+    } else
+    {
+        QXmlStreamReader xmlReader;
+        xmlReader.setDevice(&file);
+        xmlReader.readNext();
+        while(!xmlReader.atEnd())
+        {
+
+
+            if(xmlReader.isStartElement())
+            {
+                if (xmlReader.name() == "title")
+                {
+                    this->discipline = new class Discipline();
+
+                    discipline->setTitle( xmlReader.readElementText());
+                } else if (xmlReader.name() == "year")
+                {
+                    discipline->setYear(xmlReader.readElementText());
+                }else if (xmlReader.name() == "teacher")
+                {
+                    discipline->setTeacher(xmlReader.readElementText());
+
+                    this->ui->listWidget_3->addItem("Название: " + discipline->getTitle() + "\nГод утверждения: " + discipline->getYear()+ "\nПреподаватель: "
+                                                    + discipline->getTeacher()+ "\n");
+                    discipline_list.append(Discipline(discipline->getTitle(),discipline->getYear(),discipline->getTeacher()));
+
+                    discipline = NULL;
+                    delete discipline;
+                }
+            }
+
+            xmlReader.readNext();
+        }
+        file.close();
+
+    }
+}
+
+
+void MainWindow::on_pushButton_12_clicked()//добавить файл
+{
+    this->path_to_zip = "";
+    this->ui->pushButton_11->setEnabled(false);
+    this->ui->pushButton_13->setEnabled(true);
+
+    QString fileName = QFileDialog::getOpenFileName(this,tr("открыть"), "~/");
+
+    this->files_paths.append(fileName);
+
+    this->ui->listWidget_4->addItem(QString("Файл: %1\nПуть: %2\nРазмер: %3").arg(QFileInfo(fileName).fileName()).arg(fileName).arg(QFileInfo(fileName).size()));
+
+
+
+}
+
+
+void MainWindow::on_pushButton_10_clicked()//открыть архив
+{
+    this->ui->listWidget_4->clear();
+    this->files_paths.clear();
+    this->ui->pushButton_11->setEnabled(true);
+    this->ui->pushButton_13->setEnabled(false);
+
+    QString fileName = QFileDialog::getOpenFileName(this,tr("открыть"), "~/", tr("zip files (*.zip)"));
+
+    QZipReader zip_reader(fileName);
+
+    if (zip_reader.exists())
+    {
+        this->path_to_zip = fileName;
+        QString zipInfo = "";
+        zipInfo += "количество файлов в архиве = " + QString("%1\n").arg(zip_reader.count());
+        foreach (QZipReader::FileInfo info, zip_reader.fileInfoList()) {
+            if(info.isFile)
+                zipInfo += "файл :" + QString("%1 %2 байт\n").arg(info.filePath).arg(info.size);
+        }
+
+        this->ui->listWidget_4->addItem(zipInfo);
+        this->ui->pushButton_11->setEnabled(true);
+
+    }
+}
+
+
+void MainWindow::on_pushButton_11_clicked()//разархивировать
+{
+    QString dir = QFileDialog::getExistingDirectory(this, tr("Open Directory"),
+                                                    "/home",
+                                                    QFileDialog::ShowDirsOnly
+                                                        | QFileDialog::DontResolveSymlinks);
+    QZipReader zip_reader(this->path_to_zip);
+
+    zip_reader.extractAll(dir);
+}
+
+
+void MainWindow::on_pushButton_13_clicked()//заархивировать
+{
+    QString fileName = QFileDialog::getSaveFileName(this, tr("сохранить"), "~/", tr("zip files (*.zip)"));
+
+
+    QZipWriter zip(fileName);
+
+    if (zip.status() != QZipWriter::NoError)
+        return;
+
+    zip.setCompressionPolicy(QZipWriter::AutoCompress);
+
+    for(auto item : files_paths)
+    {
+        QString file_name = QFileInfo(item).fileName();
+        QFile file(item);
+        if (!file.open(QIODevice::ReadOnly))
+            return;
+        zip.setCreationPermissions(QFile::permissions(item));
+        zip.addFile(file_name, file.readAll());
+    }
+
+    zip.close();
+}
+
