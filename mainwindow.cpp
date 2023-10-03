@@ -12,14 +12,23 @@
 #include <QJsonArray>
 #include <QJsonValue>
 #include <QJsonParseError>
+#include <QThread>
 
 #include <QXmlStreamWriter>
 #include <QXmlStreamReader>
 #include <QXmlStreamAttribute>
+#include <QElapsedTimer>
 
 
 #include "QtGui/private/qzipreader_p.h"
 #include "QtGui/private/qzipwriter_p.h"
+
+#include "bfthread.h"
+
+#include <QCryptographicHash>
+#include <QObject>
+
+
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -51,6 +60,17 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
+void MainWindow::getWord(QString word)
+{
+    this->ui->label_19->setText(this->ui->label_19->text() + "один из паролей - " + word + "\n");
+
+    this->threadCount++;
+    if(this->threadCount == 3)
+    {
+        this->ui->label_19->setText(this->ui->label_19->text() + QString("время выполения - %1 секунд\n").arg(this->threadTimer.elapsed()/1000));
+    }
+}
+
 
 void MainWindow::on_pushButton_clicked()//сохранить
 {
@@ -60,6 +80,7 @@ void MainWindow::on_pushButton_clicked()//сохранить
 
     if(!file.open(QIODevice::ReadWrite)) {
         QMessageBox::information(0, "error", file.errorString());
+        return;
     }
 
 
@@ -191,15 +212,14 @@ void MainWindow::on_pushButton_7_clicked()//xml добавить
 
 void MainWindow::on_pushButton_9_clicked()//xml сохранить
 {
-    QString fileName = QFileDialog::getSaveFileName(this, tr("сохранить"), "~/", tr("json files (*.xml)"));
+    QString fileName = QFileDialog::getSaveFileName(this, tr("сохранить"), "~/", tr("xml files (*.xml)"));
 
     QFile file(fileName);
     file.open(QIODevice::WriteOnly);
 
-    /* Создаем объект, с помощью которого осуществляется запись в файл */
     QXmlStreamWriter xmlWriter(&file);
-    xmlWriter.setAutoFormatting(true);  // Устанавливаем автоформатирование текста
-    xmlWriter.writeStartDocument();     // Запускаем запись в документ
+    xmlWriter.setAutoFormatting(true);
+    xmlWriter.writeStartDocument();
 
     xmlWriter.writeStartElement("disciplins");
     for(auto item : discipline_list)
@@ -365,5 +385,56 @@ void MainWindow::on_pushButton_13_clicked()//заархивировать
     }
 
     zip.close();
+}
+
+
+void MainWindow::on_pushButton_15_clicked()
+{
+    BfThread *thread= new BfThread("test", 'a', 'l');
+    QObject::connect(thread, &BfThread::send, this, &MainWindow::getWord);
+
+
+    BfThread *thread2= new BfThread("test", 'm', 'r');
+    QObject::connect(thread2, &BfThread::send, this, &MainWindow::getWord);
+
+    BfThread *thread3= new BfThread("test", 's', 'z');
+    QObject::connect(thread3, &BfThread::send, this, &MainWindow::getWord);
+    thread3->start();
+
+    this->threadTimer.start();
+    thread->start();
+    thread2->start();
+    thread3->start();
+
+
+}
+
+
+void MainWindow::on_pushButton_14_clicked()
+{
+    QElapsedTimer timer;
+    timer.start();
+
+    qDebug() << "начало перебора";
+    for (char c1 = 'a'; c1 <= 'z'; ++c1) {
+        for (char c2 = 'a'; c2 <= 'z'; ++c2) {
+            for (char c3 = 'a'; c3 <= 'z'; ++c3) {
+                for (char c4 = 'a'; c4 <= 'z'; ++c4) {
+                    for (char c5 = 'a'; c5 <= 'z'; ++c5) {
+                        QString word = QString("%1%2%3%4%5").arg(c1).arg(c2).arg(c3).arg(c4).arg(c5);
+
+                        if(QCryptographicHash::hash(word.toUtf8(), QCryptographicHash::Sha256).toHex() == "1115dd800feaacefdf481f1f9070374a2a81e27880f187396db67958b207cbad"
+                            || QCryptographicHash::hash(word.toUtf8(), QCryptographicHash::Sha256).toHex() == "3a7bd3e2360a3d29eea436fcfb7e44c735d117c42d1c1835420b6b9942dd4f1b"
+                            || QCryptographicHash::hash(word.toUtf8(), QCryptographicHash::Sha256).toHex() == "74e1bb62f8dabb8125a58852b63bdf6eaef667cb56ac7f7cdba6d7305c50a22f")
+                        {
+                            this->ui->label_13->setText(this->ui->label_13->text() + "один из паролей - " + word + "\n");
+                        }
+                    }
+                }
+            }
+        }
+    }
+    qDebug() << "конец перебора";
+    this->ui->label_13->setText(this->ui->label_13->text() + QString("время выполения - %1 секунд\n").arg(timer.elapsed()/1000));
 }
 

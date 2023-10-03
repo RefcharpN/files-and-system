@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <student.h>
 #include <discipline.h>
+#include <QElapsedTimer>
 #include "QtGui/private/qzipreader_p.h"
 #include "QtGui/private/qzipwriter_p.h"
 
@@ -18,6 +19,8 @@ class MainWindow : public QMainWindow
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
+public slots:
+    void getWord(QString word);
 
 private slots:
     void on_pushButton_clicked();
@@ -46,6 +49,10 @@ private slots:
 
     void on_pushButton_13_clicked();
 
+    void on_pushButton_15_clicked();
+
+    void on_pushButton_14_clicked();
+
 private:
     Ui::MainWindow *ui;
 
@@ -55,6 +62,10 @@ private:
 
     QList<QString> files_paths;
     QString path_to_zip;
+
+    QElapsedTimer threadTimer;
+
+    int threadCount = 0;
 
 };
 #endif // MAINWINDOW_H
