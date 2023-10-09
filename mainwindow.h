@@ -21,6 +21,7 @@ public:
     ~MainWindow();
 public slots:
     void getWord(QString word);
+    void getWordMono(QString word);
 
 private slots:
     void on_pushButton_clicked();
@@ -66,6 +67,7 @@ private:
     QElapsedTimer threadTimer;
 
     int threadCount = 0;
+
 
 };
 #endif // MAINWINDOW_H

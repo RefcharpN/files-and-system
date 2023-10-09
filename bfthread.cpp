@@ -1,4 +1,5 @@
 #include "bfthread.h"
+#include <QDebug>
 #include <QCryptographicHash>
 
 
@@ -10,6 +11,7 @@ BfThread::BfThread(QString s, char startCh, char endCh): name(s), startCh(startC
 
 void BfThread::run()
 {
+    qDebug() << "начало перебора";
     for (char c1 = startCh; c1 <= endCh; ++c1) {
         for (char c2 = 'a'; c2 <= 'z'; ++c2) {
             for (char c3 = 'a'; c3 <= 'z'; ++c3) {
@@ -29,4 +31,5 @@ void BfThread::run()
         }
     }
     emit onFinish();
+    qDebug() << "конец перебора";
 }

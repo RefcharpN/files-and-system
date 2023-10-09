@@ -29,7 +29,6 @@
 #include <QObject>
 
 
-
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -62,12 +61,24 @@ MainWindow::~MainWindow()
 
 void MainWindow::getWord(QString word)
 {
-    this->ui->label_19->setText(this->ui->label_19->text() + "один из паролей - " + word + "\n");
+    this->ui->label_19->setText(this->ui->label_19->text()+ QCryptographicHash::hash(word.toUtf8(), QCryptographicHash::Sha256).toHex() + " - " + word + "\n");
 
     this->threadCount++;
     if(this->threadCount == 3)
     {
         this->ui->label_19->setText(this->ui->label_19->text() + QString("время выполения - %1 секунд\n").arg(this->threadTimer.elapsed()/1000));
+        this->threadCount = 0;
+    }
+}
+
+void MainWindow::getWordMono(QString word)
+{
+    this->ui->label_14->setText(this->ui->label_14->text()+ QCryptographicHash::hash(word.toUtf8(), QCryptographicHash::Sha256).toHex() + " - " + word + "\n");
+
+    this->threadCount++;
+    if(this->threadCount == 3)
+    {
+        this->ui->label_14->setText(this->ui->label_14->text() + QString("время выполения - %1 секунд\n").arg(this->threadTimer.elapsed()/1000));
     }
 }
 
@@ -85,7 +96,7 @@ void MainWindow::on_pushButton_clicked()//сохранить
 
 
     QTextStream stream(&file);
-    stream << this->ui->plainTextEdit->toPlainText()<< endl;
+    stream << this->ui->plainTextEdit->toPlainText()<< Qt::endl;
     stream.flush();
 
     file.close();
@@ -390,51 +401,72 @@ void MainWindow::on_pushButton_13_clicked()//заархивировать
 
 void MainWindow::on_pushButton_15_clicked()
 {
-    BfThread *thread= new BfThread("test", 'a', 'l');
-    QObject::connect(thread, &BfThread::send, this, &MainWindow::getWord);
 
+    this->ui->label_19->clear();
 
-    BfThread *thread2= new BfThread("test", 'm', 'r');
-    QObject::connect(thread2, &BfThread::send, this, &MainWindow::getWord);
+    int threadCount = this->ui->comboBox->currentText().toInt();
+    int alphPart = 26/threadCount;
+    QVector<BfThread*> tasks;
 
-    BfThread *thread3= new BfThread("test", 's', 'z');
-    QObject::connect(thread3, &BfThread::send, this, &MainWindow::getWord);
-    thread3->start();
+    for(int i = 0; i < 26; i = i + alphPart)
+    {
+        int start = i;
+        int end = i + alphPart - 1;
+
+        if(end > 25)
+        {
+            end = 25;
+        }
+
+        BfThread thread = BfThread("test", char('a' + start), char('a' + end));
+        tasks.append(new BfThread("test", char('a' + start), char('a' + end)));
+    }
+
+    for(int i = 0; i < tasks.length(); i++)
+    {
+        tasks[i]->start();
+
+        QObject::connect(tasks.at(i), &BfThread::send, this, &MainWindow::getWord);
+    }
 
     this->threadTimer.start();
-    thread->start();
-    thread2->start();
-    thread3->start();
-
 
 }
 
 
 void MainWindow::on_pushButton_14_clicked()
 {
-    QElapsedTimer timer;
-    timer.start();
-
-    qDebug() << "начало перебора";
-    for (char c1 = 'a'; c1 <= 'z'; ++c1) {
-        for (char c2 = 'a'; c2 <= 'z'; ++c2) {
-            for (char c3 = 'a'; c3 <= 'z'; ++c3) {
-                for (char c4 = 'a'; c4 <= 'z'; ++c4) {
-                    for (char c5 = 'a'; c5 <= 'z'; ++c5) {
-                        QString word = QString("%1%2%3%4%5").arg(c1).arg(c2).arg(c3).arg(c4).arg(c5);
-
-                        if(QCryptographicHash::hash(word.toUtf8(), QCryptographicHash::Sha256).toHex() == "1115dd800feaacefdf481f1f9070374a2a81e27880f187396db67958b207cbad"
-                            || QCryptographicHash::hash(word.toUtf8(), QCryptographicHash::Sha256).toHex() == "3a7bd3e2360a3d29eea436fcfb7e44c735d117c42d1c1835420b6b9942dd4f1b"
-                            || QCryptographicHash::hash(word.toUtf8(), QCryptographicHash::Sha256).toHex() == "74e1bb62f8dabb8125a58852b63bdf6eaef667cb56ac7f7cdba6d7305c50a22f")
-                        {
-                            this->ui->label_13->setText(this->ui->label_13->text() + "один из паролей - " + word + "\n");
-                        }
-                    }
-                }
-            }
-        }
-    }
-    qDebug() << "конец перебора";
-    this->ui->label_13->setText(this->ui->label_13->text() + QString("время выполения - %1 секунд\n").arg(timer.elapsed()/1000));
+    this->ui->label_14->clear();
+    BfThread* thread = new BfThread("test", 'a', 'z');
+    QObject::connect(thread, &BfThread::send, this, &MainWindow::getWordMono);
+    thread->start();
+    this->threadTimer.start();
 }
+
+//void MainWindow::monoBrute()
+//{
+//    QElapsedTimer timer;
+//    timer.start();
+//    qDebug() << "начало перебора";
+//    for (char c1 = 'a'; c1 <= 'z'; ++c1) {
+//        for (char c2 = 'a'; c2 <= 'z'; ++c2) {
+//            for (char c3 = 'a'; c3 <= 'z'; ++c3) {
+//                for (char c4 = 'a'; c4 <= 'z'; ++c4) {
+//                    for (char c5 = 'a'; c5 <= 'z'; ++c5) {
+//                        QString word = QString("%1%2%3%4%5").arg(c1).arg(c2).arg(c3).arg(c4).arg(c5);
+
+//                        if(QCryptographicHash::hash(word.toUtf8(), QCryptographicHash::Sha256).toHex() == "1115dd800feaacefdf481f1f9070374a2a81e27880f187396db67958b207cbad"
+//                            || QCryptographicHash::hash(word.toUtf8(), QCryptographicHash::Sha256).toHex() == "3a7bd3e2360a3d29eea436fcfb7e44c735d117c42d1c1835420b6b9942dd4f1b"
+//                            || QCryptographicHash::hash(word.toUtf8(), QCryptographicHash::Sha256).toHex() == "74e1bb62f8dabb8125a58852b63bdf6eaef667cb56ac7f7cdba6d7305c50a22f")
+//                        {
+//                            this->ui->label_14->setText(this->ui->label_14->text() + QCryptographicHash::hash(word.toUtf8(), QCryptographicHash::Sha256).toHex() + " - " + word + "\n");
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//    }
+//    qDebug() << "конец перебора";
+//    this->ui->label_14->setText(this->ui->label_14->text() + QString("время выполения - %1 секунд\n").arg(timer.elapsed()/1000));
+//}
 
